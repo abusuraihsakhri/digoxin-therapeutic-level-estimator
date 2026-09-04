@@ -368,3 +368,15 @@ class TestCLI:
     def test_assess_command(self):
         ret = main(["assess", "--weight", "70", "--age", "70", "--scr", "1.4", "--dose", "250"])
         assert ret == 0
+
+    def test_audit_command(self):
+        ret = main(["audit", "--task-id", "TEST-001"])
+        assert ret == 0
+
+    def test_chat_command(self):
+        ret = main(["chat", "Explain", "digoxin", "dosing"])
+        assert ret == 0
+
+    def test_verify_audit_command(self):
+        ret = main(["verify-audit"])
+        assert ret == 0

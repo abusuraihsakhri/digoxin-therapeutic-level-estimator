@@ -119,29 +119,66 @@ Returns:
 
 ## 💻 CLI Quickstart & Usage
 
-### 1. Guided Interactive Mode
+### Installation
+
 ```bash
-python cli.py
+pip install -e .
+# Or install with development dependencies:
+pip install -e ".[dev]"
 ```
 
-### 2. Direct Parameterized Evaluation
+### 1. Interpret Digoxin Level
 ```bash
-python cli.py --input data.csv
+python cli.py level --concentration 1.2
+python cli.py level --concentration 0.7 --indication heart_failure
+```
+
+### 2. Calculate Maintenance Dose
+```bash
+python cli.py dose --target 1.0 --crcl 80
+python cli.py dose --target 0.8 --crcl 60 --interval 24 --route oral
+```
+
+### 3. Calculate CrCl
+```bash
+python cli.py crcl --weight 70 --age 70 --scr 1.4
+python cli.py crcl --weight 60 --age 65 --scr 1.2 --female
+```
+
+### 4. Drug Interaction Adjustment
+```bash
+python cli.py interactions --dose 250 --drugs amiodarone
+python cli.py interactions --dose 250 --drugs amiodarone verapamil
+```
+
+### 5. Full Assessment
+```bash
+python cli.py assess --weight 70 --age 70 --scr 1.4 --dose 250
+python cli.py assess --weight 70 --age 70 --scr 1.4 --dose 250 --hf --drugs amiodarone
+```
+
+### 6. Enterprise Supervisor Audit
+```bash
+python cli.py audit --task-id TASK-001 --primary 12.0 --secondary 4.0
+python cli.py chat "Explain digoxin dosing"
+python cli.py verify-audit
+```
+
+### 7. Run API Server
+```bash
+python cli.py serve --host 0.0.0.0 --port 8000
 ```
 
 ### Parameter Reference
-- `--interactive`: Launch guided terminal interactive wizard.
-- `--input <path>`: Evaluate input from JSON or CSV specification.
-- `--json`: Output deterministic structured results in JSON format.
-
-### Input Data Schema
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
+- `level`: Interpret a digoxin concentration level
+- `dose`: Calculate maintenance dose based on target Css and CrCl
+- `crcl`: Calculate creatinine clearance (Cockcroft-Gault)
+- `interactions`: Adjust dose for drug interactions
+- `assess`: Full pharmacokinetic assessment
+- `audit`: Run enterprise supervisor audit
+- `chat`: Query the supervisory chat
+- `verify-audit`: Verify audit trail integrity
+- `serve`: Run the FastAPI REST server
 
 ---
 
@@ -152,6 +189,11 @@ python cli.py --input data.csv
 * **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
 * **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
 * **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+
+### Security Notes
+- The audit trail uses HMAC-SHA256 with a secret key from the `AUDIT_SECRET_KEY` environment variable
+- If not set, a cryptographically secure random key is generated at startup
+- For production deployments, always set `AUDIT_SECRET_KEY` to ensure audit trail persistence
 
 ---
 
@@ -176,4 +218,43 @@ python simulator.py --tasks 1000 --concurrency 8
 ```bash
 docker build -t digoxin-therapeutic-level-estimator .
 docker run -p 8000:8000 digoxin-therapeutic-level-estimator
+```
+
+Or using Docker Compose:
+
+```bash
+# Set a secure audit key for production
+export AUDIT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+docker-compose up -d
+```
+
+---
+
+## 📁 Project Structure
+
+```
+digoxin-therapeutic-level-estimator/
+├── agents/                  # Enterprise agent framework
+│   ├── api.py              # FastAPI REST API
+│   ├── base.py             # Security, PHI guard, audit trail
+│   ├── learning.py         # Bayesian calibration engine
+│   ├── llm_factory.py      # LLM provider factory
+│   ├── metrics.py          # Prometheus metrics
+│   ├── models.py           # Pydantic data models
+│   ├── streamer.py         # WebSocket telemetry
+│   ├── supervisor.py       # Supervisor orchestrator
+│   └── workers.py          # Specialized worker agents
+├── tests/                  # Test suite
+│   ├── test_digoxin_therapeutic_level_estimator.py
+│   └── test_enrichment.py
+├── web/                    # Web operations console
+│   └── index.html
+├── cli.py                  # CLI entry point
+├── digoxin_pk.py           # Core PK calculations
+├── enrichment.py           # Enrichment feature modules
+├── simulator.py            # High-throughput simulator
+├── pyproject.toml          # Project configuration
+├── Dockerfile              # Container build
+├── docker-compose.yml      # Container orchestration
+└── LICENSE                 # MIT License
 ```

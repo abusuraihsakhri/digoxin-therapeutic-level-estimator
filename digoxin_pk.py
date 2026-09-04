@@ -687,32 +687,32 @@ def main(argv=None):
         description="Digoxin Therapeutic Level Estimator"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
+
     # --- Level command ---
     level_parser = subparsers.add_parser("level", help="Interpret digoxin level")
     level_parser.add_argument("--concentration", type=float, required=True, help="Digoxin level ng/mL")
     level_parser.add_argument("--indication", default="general", choices=["general", "heart_failure", "afib"],
                              help="Clinical indication")
-    
+
     # --- Dose command ---
     dose_parser = subparsers.add_parser("dose", help="Calculate maintenance dose")
     dose_parser.add_argument("--target", type=float, required=True, help="Target Css ng/mL")
     dose_parser.add_argument("--crcl", type=float, required=True, help="CrCl mL/min")
     dose_parser.add_argument("--interval", type=float, default=24.0, help="Dosing interval hours")
     dose_parser.add_argument("--route", default="oral", choices=["oral", "iv", "elixir"])
-    
+
     # --- CrCl command ---
     crcl_parser = subparsers.add_parser("crcl", help="Calculate CrCl")
     crcl_parser.add_argument("--weight", type=float, required=True, help="Weight kg")
     crcl_parser.add_argument("--age", type=int, required=True, help="Age years")
     crcl_parser.add_argument("--scr", type=float, required=True, help="Serum creatinine mg/dL")
     crcl_parser.add_argument("--female", action="store_true")
-    
+
     # --- Interactions command ---
     int_parser = subparsers.add_parser("interactions", help="Drug interaction adjustment")
     int_parser.add_argument("--dose", type=float, required=True, help="Current dose mcg")
     int_parser.add_argument("--drugs", nargs="+", required=True, help="Interacting drug names")
-    
+
     # --- Assess command ---
     assess_parser = subparsers.add_parser("assess", help="Full assessment")
     assess_parser.add_argument("--weight", type=float, required=True, help="Weight kg")
@@ -723,28 +723,49 @@ def main(argv=None):
     assess_parser.add_argument("--level", type=float, help="Measured level ng/mL")
     assess_parser.add_argument("--hf", action="store_true", help="Heart failure")
     assess_parser.add_argument("--drugs", nargs="+", help="Interacting drugs")
-    
+
+    # --- Audit command (enterprise supervisor) ---
+    audit_parser = subparsers.add_parser("audit", help="Run enterprise supervisor audit")
+    audit_parser.add_argument("--task-id", required=True, help="Task identifier")
+    audit_parser.add_argument("--target", default="SPECIMEN-001", help="Target identifier")
+    audit_parser.add_argument("--primary", type=float, default=10.0, help="Primary metric")
+    audit_parser.add_argument("--secondary", type=float, default=3.0, help="Secondary metric")
+    audit_parser.add_argument("--descriptor", default="NOMINAL", help="Status descriptor")
+    audit_parser.add_argument("--critical", action="store_true", help="Critical flag")
+
+    # --- Chat command (enterprise supervisor) ---
+    chat_parser = subparsers.add_parser("chat", help="Supervisory chat query")
+    chat_parser.add_argument("query", nargs="+", help="Chat query text")
+
+    # --- Verify-audit command ---
+    verify_parser = subparsers.add_parser("verify-audit", help="Verify audit trail integrity")
+
+    # --- Serve command (API server) ---
+    serve_parser = subparsers.add_parser("serve", help="Run FastAPI server")
+    serve_parser.add_argument("--host", default="0.0.0.0", help="Host to bind")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind")
+
     args = parser.parse_args(argv)
-    
+
     if args.command == "level":
         result = interpret_digoxin_level(args.concentration, args.indication)
         print(json.dumps(result, indent=2))
-    
+
     elif args.command == "dose":
         cl = calculate_digoxin_clearance(args.crcl)
         f = {"oral": ORAL_BIOAVAILABILITY, "iv": IV_BIOAVAILABILITY, "elixir": ELIXIR_BIOAVAILABILITY}[args.route]
         result = calculate_maintenance_dose(args.target, cl, args.interval, f)
         print(json.dumps(result, indent=2))
-    
+
     elif args.command == "crcl":
         crcl = calculate_crcl_cockcroft_gault(args.weight, args.age, args.scr, args.female)
         cl = calculate_digoxin_clearance(crcl)
         print(json.dumps({"crcl_ml_min": crcl, "digoxin_cl_ml_min": cl}, indent=2))
-    
+
     elif args.command == "interactions":
         result = adjust_dose_for_drug_interactions(args.dose, args.drugs)
         print(json.dumps(result, indent=2))
-    
+
     elif args.command == "assess":
         result = full_digoxin_assessment(
             weight_kg=args.weight,
@@ -757,7 +778,40 @@ def main(argv=None):
             interacting_drugs=args.drugs
         )
         print(json.dumps(result, indent=2))
-    
+
+    elif args.command == "audit":
+        from agents.supervisor import SystemSupervisor
+        from agents.models import SystemTaskPayload
+        supervisor = SystemSupervisor(model_provider="mock")
+        payload = SystemTaskPayload(
+            task_id=args.task_id,
+            target_identifier=args.target,
+            primary_metric=args.primary,
+            secondary_metric=args.secondary,
+            status_descriptor=args.descriptor,
+            is_critical_flag=args.critical
+        )
+        dossier = supervisor.process_task(payload)
+        print(json.dumps(dossier.to_dict(), indent=2, default=str))
+
+    elif args.command == "chat":
+        from agents.supervisor import SystemSupervisor
+        supervisor = SystemSupervisor(model_provider="mock")
+        query = " ".join(args.query)
+        response = supervisor.query_supervisory_chat(query)
+        print(json.dumps({"response": response}, indent=2))
+
+    elif args.command == "verify-audit":
+        from agents.base import AuditLogger
+        verified = AuditLogger.verify_integrity()
+        trail_len = len(AuditLogger.get_trail())
+        print(json.dumps({"integrity_verified": verified, "trail_length": trail_len}, indent=2))
+
+    elif args.command == "serve":
+        import uvicorn
+        from agents.api import app
+        uvicorn.run(app, host=args.host, port=args.port)
+
     return 0
 
 
