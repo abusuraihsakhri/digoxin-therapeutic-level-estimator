@@ -1,236 +1,221 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digoxin Therapeutic Level Estimator — Operations Console</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #090d16;
-            --card: #111827;
-            --border: #1f293d;
-            --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.25);
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --success: #10b981;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            padding: 2rem;
-            min-height: 100vh;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .header-title h1 { font-size: 1.6rem; font-weight: 700; color: #fff; }
-        .header-title p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
-        .badge {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: var(--accent-glow);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 1.5rem;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        }
-        .card h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-        input, select, textarea {
-            width: 100%;
-            padding: 0.65rem 0.9rem;
-            background: #0d1322;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 0.9rem;
-        }
-        input:focus, textarea:focus { outline: none; border-color: var(--accent); }
-        .btn {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 0.7rem 1.4rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-            width: 100%;
-        }
-        .btn:hover { background: #2563eb; }
-        .terminal {
-            background: #060911;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #10b981;
-            height: 380px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-        .metrics-bar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .metric-box {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-        .metric-val { font-size: 1.4rem; font-weight: 700; color: #fff; margin-top: 0.25rem; }
-        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Local-only educational digoxin population pharmacokinetic estimator with explicit model assumptions and warnings.">
+  <title>Digoxin | Pharmacokinetic Research Estimator</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1220; --panel:#121d30; --line:#344258; --text:#ecf2fc; --muted:#b5c2d4; --accent:#82b4ff; --warn:#ffdb92; }
+    * { box-sizing: border-box }
+    html { font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.5 }
+    body { margin:0; background:var(--bg); color:var(--text); }
+    main { max-width:1120px; padding:28px 22px 64px; margin:auto }
+    header { margin-bottom:22px; }
+    .eyebrow { color:var(--accent); font-size:.78rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
+    h1 { font-size:clamp(1.65rem,3vw,2.4rem); line-height:1.15; margin:8px 0 }
+    h2 { font-size:1.1rem; margin:0 0 14px }
+    p { margin:6px 0 12px; }
+    .muted { color:var(--muted); }
+    .notice { border-left:4px solid var(--warn); background:#2b281e; color:#fff1ce; padding:11px 15px; border-radius:4px; margin:16px 0 22px; }
+    .layout { display:grid; grid-template-columns:minmax(300px,460px) 1fr; gap:18px; align-items:start; }
+    .panel { border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:20px; }
+    .fields { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+    .field.wide { grid-column:1/-1; }
+    label { display:block; font-size:.84rem; font-weight:600; margin-bottom:5px; color:var(--muted); }
+    input,select,button { font:inherit; }
+    input,select { width:100%; padding:10px 11px; color:var(--text); background:#0a1425; border:1px solid #61728a; border-radius:7px; min-height:44px; }
+    input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+    input:invalid { border-color:#f39f9f; }
+    .actions { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap }
+    button { background:var(--accent); color:#091426; padding:10px 15px; border:1px solid transparent; border-radius:7px; font-weight:700; cursor:pointer; min-height:44px; }
+    button:hover { filter:brightness(1.08); }
+    button.secondary { color:var(--text); background:transparent; border-color:var(--line); }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:18px; }
+    .metric { background:#0a1425; border:1px solid var(--line); border-radius:8px; padding:13px; min-height:94px; }
+    .metric b { display:block; font-size:clamp(1.2rem,2.5vw,1.7rem); font-variant-numeric:tabular-nums; margin:6px 0 0; overflow-wrap:anywhere; }
+    .metric small { color:var(--muted); display:block; }
+    #error { background:#532b30; color:#fff; padding:12px; border-radius:8px; margin-bottom:12px; }
+    #error[hidden], #results[hidden], #measured[hidden] { display:none; }
+    .analysis { border-top:1px solid var(--line); padding-top:13px; margin-top:12px; }
+    .analysis p { margin-bottom:8px; }
+    .footnotes { margin-top:20px; font-size:.88rem; color:var(--muted); }
+    a { color:#aacaff; text-underline-offset:3px; }
+    code { font-size:.87em; color:#d8e8ff; }
+    ul { padding-left:22px; margin:8px 0; }
+    li { margin-bottom:5px; }
+    .sr { position:absolute; left:-10000px; height:1px; width:1px; overflow:hidden; }
+    @media(max-width:790px) { main{padding:20px 14px 48px} .layout{grid-template-columns:1fr} }
+    @media(max-width:400px) { .fields,.grid{grid-template-columns:1fr} }
+  </style>
 </head>
 <body>
-
-    <div class="header">
-        <div class="header-title">
-            <h1>Digoxin Therapeutic Level Estimator</h1>
-            <p>Domain: Clinical & Cryptographic AI | Standard: CAP / CLSI / NIST Standards | LabMind-Atlas Architecture</p>
+<main>
+  <header>
+    <div class="eyebrow">Clinical pharmacology · Research tool</div>
+    <h1>Digoxin therapeutic level estimator</h1>
+    <p class="muted">Population pharmacokinetic model · No server connection required · Calculations remain in this browser tab</p>
+  </header>
+  <div class="notice" role="note"><strong>Educational/research use only.</strong> Not validated for prescribing, diagnosis, or toxicity exclusion. Serum concentration depends on sampling time; clinical response, ECG, renal function, electrolytes and interacting drugs are essential.</div>
+  <div class="layout">
+    <section class="panel" aria-labelledby="input-heading">
+      <h2 id="input-heading">Parameters</h2>
+      <form id="calculator">
+        <div class="fields">
+          <div class="field"><label for="age">Age (years)</label><input id="age" name="age" type="number" min="18" max="110" step="1" value="70" required></div>
+          <div class="field"><label for="sex">Cockcroft–Gault coefficient</label><select id="sex" name="sex"><option value="male">Male (1.0)</option><option value="female">Female (0.85)</option></select></div>
+          <div class="field"><label for="weight">Weight (kg)</label><input id="weight" name="weight" type="number" min="20" max="300" step="any" value="70" required></div>
+          <div class="field"><label for="scr">Serum creatinine (mg/dL)</label><input id="scr" name="scr" type="number" min=".2" max="15" step="any" value="1.4" required></div>
+          <div class="field"><label for="dose">Dose per administration (micrograms)</label><input id="dose" name="dose" type="number" min="1" max="2000" step="any" value="125" required></div>
+          <div class="field"><label for="interval">Dosing interval (hours)</label><input id="interval" name="interval" type="number" min="8" max="168" step="any" value="24" required></div>
+          <div class="field"><label for="route">Route / formulation</label><select id="route" name="route"><option value="oral">Oral tablet (F=0.70)</option><option value="elixir">Oral solution (F=0.80)</option><option value="iv">IV (F=1.00)</option></select></div>
+          <div class="field"><label for="indication">Indication / interpretive context</label><select id="indication" name="indication"><option value="heart_failure">Heart failure</option><option value="general">General / historical range</option><option value="afib">Atrial fibrillation (individualized)</option></select></div>
+          <div class="field wide"><label for="measured-level">Measured serum level (ng/mL) — optional</label><input id="measured-level" name="measured-level" type="number" min="0" max="20" step="any" placeholder="Leave blank when not available"></div>
         </div>
-        <div>
-            <span class="badge">Air-Gapped Active</span>
-            <span class="badge" style="background: rgba(16,185,129,0.2); color: #10b981; border-color: #10b981;">Zero-PHI Guard Active</span>
+        <div class="actions"><button type="submit">Calculate estimate</button><button class="secondary" type="button" id="download" disabled>Export JSON</button></div>
+      </form>
+      <p class="muted" style="font-size:.82rem;margin-top:14px">Only non-identifying numerical inputs are needed. Do not enter patient identifiers. All processing is local to this page.</p>
+    </section>
+    <section class="panel" aria-labelledby="results-heading">
+      <h2 id="results-heading">Estimates and interpretation</h2>
+      <div id="error" role="alert" hidden></div>
+      <div id="results" aria-live="polite" hidden>
+        <div class="grid">
+          <div class="metric"><small>Cockcroft–Gault CrCl</small><b id="result-crcl">—</b><small>mL/min</small></div>
+          <div class="metric"><small>Estimated digoxin clearance</small><b id="result-cl">—</b><small>mL/min</small></div>
+          <div class="metric"><small>Steady-state average concentration</small><b id="result-css">—</b><small>ng/mL (model prediction)</small></div>
+          <div class="metric"><small>Elimination half-life</small><b id="result-half">—</b><small>hours (model prediction)</small></div>
         </div>
-    </div>
-
-    <div class="metrics-bar">
-        <div class="metric-box">
-            <div class="metric-label">System Status</div>
-            <div class="metric-val" style="color: var(--success);" id="m-status">OPTIMAL</div>
+        <div id="measured" class="analysis" hidden>
+          <h2>Measured level: <span id="level-value"></span> ng/mL</h2>
+          <p id="interpretation"></p>
         </div>
-        <div class="metric-box">
-            <div class="metric-label">Tasks Processed</div>
-            <div class="metric-val" id="m-tasks">142</div>
+        <div class="analysis">
+          <h2>Important limitations</h2>
+          <ul>
+            <li>Calculated concentration is a <strong>steady-state average</strong>, not a measured trough or post-dose peak.</li>
+            <li>The nonrenal clearance assumption is <strong>40 mL/min</strong>; it may vary materially across populations, especially heart failure.</li>
+            <li>Creatinine clearance assumes stable renal function and uses the weight entered; accuracy may be poor at extremes of body composition.</li>
+            <li>Distribution volume is a coarse adult population estimate (age, renal impairment and heart failure modifiers). This is not an individualized PK fit.</li>
+            <li>Do not infer dosing changes or rule out toxicity from these estimates or a single laboratory level.</li>
+          </ul>
         </div>
-        <div class="metric-box">
-            <div class="metric-label">Audit Blocks Signed</div>
-            <div class="metric-val" id="m-audit">142</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">PHI Interceptions</div>
-            <div class="metric-val" style="color: var(--accent);" id="m-phi">0</div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card">
-            <h2>⚙️ Dispatch Distributed Component Audit</h2>
-            <div class="form-group">
-                <label>Task / Sample ID</label>
-                <input type="text" id="task_id" value="TASK-2026-LIVE-01">
-            </div>
-            <div class="form-group">
-                <label>Target Identifier</label>
-                <input type="text" id="target_id" value="SPECIMEN-ALPHA-77">
-            </div>
-            <div class="form-group">
-                <label>Primary Measurement / Value</label>
-                <input type="number" id="primary_metric" value="29.4" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Secondary Metric / Kinetic Index</label>
-                <input type="number" id="secondary_metric" value="14.8" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Status / Phenotype Descriptor</label>
-                <input type="text" id="status_descriptor" value="DISCORDANT_ANOMALY">
-            </div>
-            <div class="form-group">
-                <label><input type="checkbox" id="is_critical" checked> Trigger Emergency / Critical Flag</label>
-            </div>
-            <button class="btn" onclick="runAudit()">Execute Distributed Component Audit</button>
-        </div>
-
-        <div class="card">
-            <h2>📊 Real-Time Consensus Dossier & Audit Log</h2>
-            <div class="terminal" id="outputConsole">// Digoxin Therapeutic Level Estimator Operations Console Ready
-// Connection established with Air-Gapped Supervisor
-// Cryptographic HMAC-SHA256 audit ledger loaded.
-// Ready for live task payload dispatch...</div>
-        </div>
-    </div>
-
-    <script>
-        async function runAudit() {
-            const consoleEl = document.getElementById('outputConsole');
-            consoleEl.innerText = "// Dispatching task across specialized workers...
-// Invoking InvariantQCWorker, SafetyEscalationWorker, ProtocolWorker...";
-
-            const payload = {
-                task_id: document.getElementById('task_id').value,
-                target_identifier: document.getElementById('target_id').value,
-                primary_metric: parseFloat(document.getElementById('primary_metric').value),
-                secondary_metric: parseFloat(document.getElementById('secondary_metric').value),
-                status_descriptor: document.getElementById('status_descriptor').value,
-                is_critical_flag: document.getElementById('is_critical').checked
-            };
-
-            try {
-                const res = await fetch('/api/audit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                consoleEl.innerText = JSON.stringify(data, null, 2);
-                document.getElementById('m-tasks').innerText = parseInt(document.getElementById('m-tasks').innerText) + 1;
-                document.getElementById('m-audit').innerText = parseInt(document.getElementById('m-audit').innerText) + 1;
-            } catch (err) {
-                consoleEl.innerText = "// Offline / Simulation Output:\n" + JSON.stringify({
-                    dossier_id: "DOSSIER-SIM-" + Math.floor(Math.random()*10000),
-                    system: "digoxin-therapeutic-level-estimator",
-                    domain: "Clinical & Cryptographic AI",
-                    task_id: payload.task_id,
-                    overall_urgency: payload.is_critical_flag ? "CRITICAL_STAT_PANIC" : "ELEVATED_RISK",
-                    integrity_status: "DISCORDANT_ANOMALY",
-                    alerts: [
-                        { worker: "InvariantQCWorker", alert: "Primary metric exceeds upper reference bound" },
-                        { worker: "SafetyEscalationWorker", alert: "Critical emergency interlock flag active" }
-                    ],
-                    audit_hash: "HMAC_SHA256_e83f9a72b941d6c381f9"
-                }, null, 2);
-            }
-        }
-    </script>
+        <p class="muted" id="assumptions"></p>
+      </div>
+      <p id="placeholder" class="muted">Enter numerical parameters and calculate. Results will appear here.</p>
+    </section>
+  </div>
+  <div class="footnotes">
+    <p><strong>Model:</strong> CrCl = (140 − age) × weight / (72 × serum creatinine), ×0.85 for female coefficient; digoxin CL = 1.303 × CrCl + 40 mL/min. Mean steady-state concentration = F × dose / (clearance in L/h × dosing interval). Parameters are approximations, not personalized predictions.</p>
+    <p><strong>References:</strong> <a href="https://jamanetwork.com/journals/jamainternalmedicine/fullarticle/769541" rel="noopener noreferrer" target="_blank">Published Koup–Jusko clearance comparison</a> · <a href="https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b69e2d2b-725c-4f2c-912d-d068da5c0f31" rel="noopener noreferrer" target="_blank">Digoxin prescribing information</a>. Measure at least 6 hours after the last dose, ideally immediately before the next dose; interpret in clinical context.</p>
+    <p>Backend CLI and API are independent components of the repository; this static page neither contacts them nor manufactures their output.</p>
+  </div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var form = document.getElementById("calculator");
+  var resultPanel = document.getElementById("results");
+  var errorPanel = document.getElementById("error");
+  var exportButton = document.getElementById("download");
+  var lastResult = null;
+  function field(id) { return document.getElementById(id); }
+  function num(id) {
+    var value = Number(field(id).value);
+    if (field(id).value.trim() === "" || !Number.isFinite(value)) {
+      throw new Error("Enter a finite numeric value for " + id + ".");
+    }
+    return value;
+  }
+  function ranged(value, low, high, name) {
+    if (value < low || value > high) throw new Error(name + " must be between " + low + " and " + high + ".");
+    return value;
+  }
+  function round(value, digits) {
+    var scale = Math.pow(10, digits);
+    return Math.round((value + Number.EPSILON) * scale) / scale;
+  }
+  function calculate() {
+    var age = ranged(num("age"), 18, 110, "Age");
+    if (!Number.isInteger(age)) throw new Error("Age must be a whole number.");
+    var weight = ranged(num("weight"), 20, 300, "Weight");
+    var scr = ranged(num("scr"), 0.2, 15, "Serum creatinine");
+    var dose = ranged(num("dose"), 1, 2000, "Dose");
+    var interval = ranged(num("interval"), 8, 168, "Dosing interval");
+    var sex = field("sex").value, route = field("route").value, indication = field("indication").value;
+    var f = {oral:0.7,elixir:0.8,iv:1.0}[route];
+    if (!f) throw new Error("Unsupported formulation.");
+    var crcl = round((140 - age) * weight / (72 * scr) * (sex === "female" ? 0.85 : 1), 2);
+    var clearance = round(1.303 * crcl + 40, 2);
+    var vd = Math.min(6,crcl < 60 ? 4.5 : 6);
+    if (indication === "heart_failure") vd *= 0.75;
+    if (age > 65) vd *= 0.85;
+    var vdL = round(vd * weight, 1);
+    var half = round(Math.log(2) * vdL / (clearance * 0.06), 1);
+    var css = round(f * dose / (clearance * 0.06 * interval), 2);
+    var rawMeasured = field("measured-level").value.trim();
+    var measured = rawMeasured === "" ? null : ranged(num("measured-level"), 0, 20, "Measured level");
+    var guidance = null;
+    if (measured !== null) {
+      var target = indication === "heart_failure" ? "The frequently used HF reference interval is 0.5–0.9 ng/mL." :
+        "Interpretive goals depend on indication; 0.5–2.0 ng/mL is a historical reference, not a guarantee of safety.";
+      var message = measured > 2 ? "Above 2 ng/mL: increased toxicity risk is reported; obtain prompt clinical review." :
+        measured < 0.5 ? "Below 0.5 ng/mL: assess indication, adherence, sampling time and response before any change." :
+        "Concentration alone neither confirms efficacy nor excludes digoxin toxicity.";
+      guidance = target + " " + message + " Sample just before the next dose, or at least 6 hours after the previous dose. Review ECG, symptoms, potassium, magnesium, renal function and interacting drugs.";
+    }
+    return {
+      inputs:{age_years:age,weight_kg:weight,serum_creatinine_mg_dl:scr,
+        cockcroft_gault_coefficient:sex,dose_mcg:dose,interval_hours:interval,
+        route:route,indication:indication,measured_level_ng_ml:measured},
+      estimates:{crcl_ml_min:crcl,digoxin_clearance_ml_min:clearance,
+        volume_distribution_liters:vdL,half_life_hours:half,average_steady_state_ng_ml:css},
+      measured_level_context:guidance,
+      assumptions:{nonrenal_clearance_ml_min:40,oral_bioavailability:f,
+        steady_state:true,renal_function_stable:true},
+      disclaimer:"Research estimate only. Never use as a standalone clinical dosing decision."
+    };
+  }
+  function render() {
+    try {
+      lastResult = calculate();
+      errorPanel.hidden = true;
+      resultPanel.hidden = false;
+      field("placeholder").hidden = true;
+      exportButton.disabled = false;
+      field("result-crcl").textContent = lastResult.estimates.crcl_ml_min.toFixed(2);
+      field("result-cl").textContent = lastResult.estimates.digoxin_clearance_ml_min.toFixed(2);
+      field("result-css").textContent = lastResult.estimates.average_steady_state_ng_ml.toFixed(2);
+      field("result-half").textContent = lastResult.estimates.half_life_hours.toFixed(1);
+      var m = lastResult.inputs.measured_level_ng_ml;
+      field("measured").hidden = m === null;
+      if (m !== null) {
+        field("level-value").textContent = String(m);
+        field("interpretation").textContent = lastResult.measured_level_context;
+      }
+      field("assumptions").textContent = "Model Vd: " + lastResult.estimates.volume_distribution_liters.toFixed(1) +
+        " L · Assumed formulation bioavailability: " + (lastResult.assumptions.oral_bioavailability * 100) + "%";
+    } catch (error) {
+      lastResult = null;
+      errorPanel.textContent = error.message || "Invalid input.";
+      errorPanel.hidden = false;
+      resultPanel.hidden = true;
+      exportButton.disabled = true;
+    }
+  }
+  form.addEventListener("submit",function (e) { e.preventDefault(); render(); });
+  exportButton.addEventListener("click",function () {
+    if (!lastResult) return;
+    var blob = new Blob([JSON.stringify(lastResult,null,2) + "\n"],{type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url; link.download = "digoxin-research-estimate.json";
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); },1000);
+  });
+  render();
+}());
+</script>
 </body>
 </html>

@@ -1,40 +1,108 @@
-name: Digoxin Therapeutic Level Estimator CI/CD & Security Verification
+name: Tests, security checks, and Pages
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  test-and-audit:
+  test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install project and test dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Verify environment
+        run: python -m pip check
+      - name: Compile Python
+        run: python -m compileall -q agents digoxin_pk.py enrichment.py cli.py simulator.py tests
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Browser calculator smoke test
+        run: node tests/browser_smoke.cjs
+      - name: API HTTP smoke test
+        if: matrix.python-version == '3.12'
+        run: |
+          python cli.py serve --host 127.0.0.1 --port 8765 > /tmp/digoxin-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 25); do
+            if curl --silent --fail http://127.0.0.1:8765/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/digoxin-server.log; exit 1; fi
+          curl --silent --fail http://127.0.0.1:8765/ | grep -q 'id="calculator"'
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8765/api/audit/logs)
+          test "$status" = "403"
+      - name: Docker build and HTTP smoke
+        if: matrix.python-version == '3.12'
+        run: |
+          docker build -t digoxin-estimator:ci .
+          docker run -d --name digoxin-estimator-ci -p 8766:8000 digoxin-estimator:ci
+          trap 'docker rm -f digoxin-estimator-ci >/dev/null 2>&1 || true' EXIT
+          ready=0
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8766/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then docker logs digoxin-estimator-ci; exit 1; fi
+          curl --silent --fail http://127.0.0.1:8766/ | grep -q 'id="calculator"'
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install project and auditor
+        run: python -m pip install -e . pip-audit
+      - name: Audit installed dependencies
+        run: python -m pip_audit
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install fastapi uvicorn pydantic pytest
-
-    - name: Run Pytest Suite
-      run: |
-        pytest -v
-
-    - name: Security SAST & Zero-PHI Audit
-      run: |
-        python -c "
-        from agents.base import PHIGuard, AuditLogger
-        import pytest
-        assert AuditLogger.verify_integrity() is True
-        print('Security & Zero-PHI Audit Passed!')
-        "
+  deploy-pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [test, dependency-audit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

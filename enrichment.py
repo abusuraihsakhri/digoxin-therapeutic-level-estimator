@@ -1,6 +1,9 @@
 """
-Enrichment Feature Implementation for digoxin-therapeutic-level-estimator.
-Generated based on domain-specific requirements in specifications.
+Legacy, generic threshold-rule prototypes.
+
+These named classes DO NOT implement two-compartment kinetics, electrolyte
+modeling, validated drug-interaction checking, or AF rate-control prediction.
+Their outputs are demonstrations only and must not be interpreted clinically.
 """
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Tuple
