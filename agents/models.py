@@ -1,7 +1,7 @@
 """
 Pydantic v2 schemas and data definitions for Digoxin Therapeutic Level Estimator.
 Domain: Clinical & Biomedical AI
-Standard: CAP / CLSI / ISO Standards
+Standard: no verified CAP/CLSI/ISO clinical conformance
 """
 import datetime
 from enum import Enum
@@ -24,7 +24,7 @@ class SystemIntegrityStatus(str, Enum):
 class SystemTaskPayload(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
     task_id: str = Field(..., min_length=1, max_length=128, description="Unique task / case identifier")
-    target_identifier: str = Field(..., min_length=1, max_length=128, description="Entity, patient key, or genomic/cryptographic target")
+    target_identifier: str = Field(..., min_length=1, max_length=128, description="Pseudonymous reference only; do not submit patient identifiers")
     primary_metric: float = Field(..., description="Primary domain measurement or score")
     secondary_metric: float = Field(default=0.0, description="Secondary kinetic or confidence score")
     status_descriptor: str = Field(default="NOMINAL", max_length=128, description="Status code or phenotype descriptor")
@@ -40,7 +40,7 @@ class AgentAlert(BaseModel):
     summary: str
     technical_details: str
     actionable_remediation: str
-    standard_reference: str = "CAP / CLSI / ISO Standards"
+    standard_reference: str = "Generic demonstration rule set; not clinically validated"
     timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
@@ -58,7 +58,7 @@ class ConsensusDossier(BaseModel):
     total_alerts: int
     critical_alerts_count: int
     alerts: List[AgentAlert]
-    standard_reference: str = "CAP / CLSI / ISO Standards"
+    standard_reference: str = "Generic demonstration rule set; not clinically validated"
     consensus_summary: str
     audit_hash: str
     timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
