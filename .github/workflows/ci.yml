@@ -33,10 +33,24 @@ jobs:
         run: python -m compileall -q agents digoxin_pk.py enrichment.py cli.py simulator.py tests
       - name: Run tests
         run: python -m pytest -q
+      - name: Browser calculator smoke test
+        run: node tests/browser_smoke.cjs
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install project and auditor
+        run: python -m pip install -e . pip-audit
+      - name: Audit installed dependencies
+        run: python -m pip_audit
 
   deploy-pages:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: [test]
+    needs: [test, dependency-audit]
     runs-on: ubuntu-latest
     permissions:
       contents: read
