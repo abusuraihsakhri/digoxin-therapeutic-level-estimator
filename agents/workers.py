@@ -1,7 +1,7 @@
 """
 Specialized Domain Worker Agents for Digoxin Therapeutic Level Estimator.
 Domain: Clinical & Biomedical AI
-Standard: CAP / CLSI / ISO Standards
+Standard: arbitrary demonstration thresholds, not clinically validated
 """
 import uuid
 from typing import Dict, Any, List, Optional
@@ -20,7 +20,7 @@ class InvariantQCWorker:
                 origin_worker="InvariantQCWorker",
                 urgency=UrgencyLevel.ELEVATED,
                 summary="Primary Metric Threshold Exceeded",
-                technical_details=f"Primary measurement ({payload.primary_metric:.2f}) exceeds upper reference limit (25.00) under CAP / CLSI / ISO Standards.",
+                technical_details=f"Primary measurement ({payload.primary_metric:.2f}) exceeds upper reference limit (25.00) under the nonclinical demonstration rule set.",
                 actionable_remediation="Initiate recalibration workflow and review secondary parameters.",
             ))
         return alerts
@@ -51,13 +51,13 @@ class ProtocolConformanceWorker:
     def evaluate(cls, payload: SystemTaskPayload) -> List[AgentAlert]:
         alerts = []
         desc_upper = str(payload.status_descriptor).upper()
-        if any(w in desc_upper for w in ["DISCORDANT", "ANOMALY", "MUTANT", "VIOLATION", "FAIL", "REJECT"]):
+        if any(w in desc_upper for w in ["DISCORDANT", "ANOMALY", "VIOLATION", "FAIL", "REJECT"]):
             alerts.append(AgentAlert(
                 alert_id=f"CONF-{uuid.uuid4().hex[:6]}",
                 origin_worker="ProtocolConformanceWorker",
                 urgency=UrgencyLevel.ELEVATED,
                 summary="Protocol Conformance Discordance Detected",
-                technical_details=f"Descriptor '{payload.status_descriptor}' indicates discordance with CAP / CLSI / ISO Standards standards.",
+                technical_details=f"Descriptor '{payload.status_descriptor}' matched a demonstration pattern; no clinical standard was evaluated.",
                 actionable_remediation="Re-evaluate input specimen or rerun secondary confirmation assay.",
             ))
         return alerts
