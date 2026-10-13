@@ -1,6 +1,6 @@
 """
 Supervisor Orchestrator & Operations Intelligence for Digoxin Therapeutic Level Estimator.
-Domain: Clinical & Biomedical AI
+Domain: generic rule-based demonstration; not a clinical-grade system
 """
 import uuid
 from typing import Dict, Any, List, Optional
@@ -66,7 +66,7 @@ class SystemSupervisor:
             total_alerts=len(all_alerts),
             critical_alerts_count=crit_count,
             alerts=all_alerts,
-            consensus_summary=f"Multi-agent consensus completed with status [{overall_urgency.value}]. Total alerts: {len(all_alerts)}.",
+            consensus_summary=f"Demonstration rules completed with status [{overall_urgency.value}]. Total alerts: {len(all_alerts)}. No clinical validation performed.",
             audit_hash=audit_entry["current_hash"],
         )
 
@@ -75,5 +75,5 @@ class SystemSupervisor:
 
     def query_supervisory_chat(self, query: str) -> str:
         PHIGuard.assert_no_phi(query)
-        prompt = f"Supervisor inquiry for Digoxin Therapeutic Level Estimator under CAP / CLSI / ISO Standards: {query}"
+        prompt = f"Mock-only demo query for Digoxin Therapeutic Level Estimator: {query}"
         return self.llm.invoke(prompt)
