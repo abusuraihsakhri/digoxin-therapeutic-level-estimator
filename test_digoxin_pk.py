@@ -50,13 +50,13 @@ class TestCrCl:
 
 class TestDigoxinClearance:
     def test_koup_jusko(self):
-        # CL = 1.303 * 100 + 0.88 = 131.18
+        # Koup-Jusko population model: 1.303 * 100 + 40 = 170.30 mL/min
         cl = calculate_digoxin_clearance(100)
-        assert abs(cl - 131.18) < 0.01
+        assert abs(cl - 170.3) < 0.01
 
     def test_zero_crcl(self):
         cl = calculate_digoxin_clearance(0)
-        assert abs(cl - 0.88) < 0.01
+        assert abs(cl - 40.0) < 0.01
 
     def test_negative_crcl(self):
         with pytest.raises(ValueError):
@@ -192,8 +192,8 @@ class TestMaintenanceDose:
 
     def test_rounding(self):
         result = calculate_maintenance_dose(1.0, 100)
-        # Should be rounded to nearest 12.5mcg
-        assert result["rounded_daily_dose_mcg"] % 12.5 == 0
+        # Illustrative rounded dose uses 62.5-mcg increments
+        assert result["rounded_daily_dose_mcg"] % 62.5 == 0
 
 
 # ============================================================================
@@ -380,3 +380,58 @@ class TestCLI:
     def test_verify_audit_command(self):
         ret = main(["verify-audit"])
         assert ret == 0
+
+
+# Regression tests for potentially hazardous model and input failures
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_reject_nonfinite_values(value):
+    with pytest.raises(ValueError):
+        calculate_crcl_cockcroft_gault(70, 70, value)
+    with pytest.raises(ValueError):
+        calculate_digoxin_clearance(value)
+    with pytest.raises(ValueError):
+        calculate_steady_state_concentration(125, 100, 24, value)
+    with pytest.raises(ValueError):
+        interpret_digoxin_level(value)
+
+
+def test_nonrenal_clearance_parameter():
+    assert calculate_digoxin_clearance(0, 20) == 20.0
+    assert calculate_digoxin_clearance(0, 40) == 40.0
+    with pytest.raises(ValueError):
+        calculate_digoxin_clearance(60, 0)
+
+
+def test_invalid_dosing_interval_and_route():
+    with pytest.raises(ValueError):
+        calculate_maintenance_dose(0.8, 90, tau_hours=0)
+    with pytest.raises(ValueError):
+        calculate_loading_dose(0.8, 250, bioavailability=0)
+    with pytest.raises(ValueError):
+        calculate_peak_concentration(125, 250, 80, 0)
+    with pytest.raises(ValueError):
+        full_digoxin_assessment(70, 70, 1.1, False, 125, route="invalid")
+
+
+def test_low_level_does_not_generate_automatic_loading():
+    result = full_digoxin_assessment(
+        70, 70, 1.1, False, 125, measured_level_ng_ml=0.2
+    )
+    assert result["loading_dose"] is None
+    assert "loading" not in result["measured_level_interpretation"]["recommendation"].lower()
+
+
+def test_low_level_is_not_automatic_dose_increase():
+    result = interpret_digoxin_level(0.3)
+    assert result["status"] == "SUBTHERAPEUTIC"
+    assert "do not increase" in result["recommendation"].lower()
+    assert "6 hours" in result["sampling_note"]
+
+
+def test_estimated_minimum_clearance_and_concentration_consistency():
+    # CrCl=0 must not imply effectively zero digoxin nonrenal clearance.
+    clearance = calculate_digoxin_clearance(0)
+    assert clearance >= 20
+    css = calculate_steady_state_concentration(125, clearance, 24)
+    assert 0 < css < 2
