@@ -1,0 +1,1 @@
+"""Bundled standalone browser application."""
