@@ -1,5 +1,5 @@
 """
-Enterprise Security, PHI Outbound Guard, and HMAC-SHA256 Audit Trail.
+Basic identifier-pattern checks and in-memory HMAC-SHA256 audit trail.\nThe regex heuristic is not HIPAA de-identification or a comprehensive PHI detector.
 
 """
 import os
@@ -25,7 +25,7 @@ PHI_PATTERNS = [
 
 
 class SecurityException(Exception):
-    """Raised when outbound data violates HIPAA Safe Harbor or contains raw PHI."""
+    """Raised when input matches a configured sensitive-identifier heuristic."""
     pass
 
 
