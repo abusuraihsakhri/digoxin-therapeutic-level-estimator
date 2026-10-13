@@ -7,7 +7,7 @@ name = "digoxin-therapeutic-level-estimator"
 version = "3.0.0"
 description = "Real pharmacokinetic calculations for digoxin therapeutic drug monitoring"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Dr. Abu Suraih Sakhri"}
 ]
@@ -15,7 +15,6 @@ requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Healthcare Industry",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -42,3 +41,10 @@ testpaths = [".", "tests"]
 python_files = ["test_*.py", "tests/test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[tool.setuptools]
+packages = ["agents", "web"]
+py-modules = ["digoxin_pk", "enrichment", "cli", "simulator"]
+
+[tool.setuptools.package-data]
+web = ["index.html"]
