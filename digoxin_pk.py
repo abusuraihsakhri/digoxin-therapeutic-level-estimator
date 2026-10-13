@@ -8,7 +8,7 @@ Implements population PK with renal-based clearance adjustment.
 Key formulas:
 - Therapeutic range: 0.5-2.0 ng/mL (HF: 0.5-0.9 ng/mL)
 - Vd: 5-7 L/kg (reduced in renal impairment, CHF, elderly)
-- CL = 1.303 * CrCl + 0.88 (mL/min) [Koup & Jusko]
+- CL = 1.303 * CrCl + CL_nonrenal (mL/min); default CL_nonrenal = 40 mL/min
 - t1/2 = 0.693 * Vd / CL
 - Loading dose: LD = Vd * Ctarget / F
 - Maintenance dose: MD = Css * CL * tau / F (F = 0.7 oral)
@@ -37,6 +37,18 @@ HF_THERAPEUTIC_LOW = 0.5
 HF_THERAPEUTIC_HIGH = 0.9
 TOXICITY_THRESHOLD = 2.0
 HIGH_TOXICITY_THRESHOLD = 3.0
+
+
+def _validate_positive_finite(value: float, name: str, allow_zero: bool = False) -> None:
+    """Reject NaN, infinities and invalid numeric PK parameters."""
+    if not math.isfinite(value) or (value < 0 if allow_zero else value <= 0):
+        raise ValueError(f"{name} must be finite and {'non-negative' if allow_zero else 'positive'}")
+
+
+def _validate_bioavailability(value: float) -> None:
+    _validate_positive_finite(value, "Bioavailability")
+    if value > 1:
+        raise ValueError("Bioavailability cannot exceed 1")
 
 # Population PK parameters
 DEFAULT_VD_PER_KG = 6.0        # L/kg (range 5-7)
@@ -92,12 +104,10 @@ def calculate_crcl_cockcroft_gault(
     Returns:
         CrCl in mL/min
     """
-    if serum_creatinine_mg_dl <= 0:
-        raise ValueError("Serum creatinine must be positive")
-    if weight_kg <= 0:
-        raise ValueError("Weight must be positive")
-    if age_years < 0:
-        raise ValueError("Age must be non-negative")
+    _validate_positive_finite(serum_creatinine_mg_dl, "Serum creatinine")
+    _validate_positive_finite(weight_kg, "Weight")
+    if not 18 <= age_years < 140:
+        raise ValueError("Cockcroft-Gault estimate is intended for adults aged 18 to 139")
     
     crcl = ((140 - age_years) * weight_kg) / (72 * serum_creatinine_mg_dl)
     if is_female:
@@ -105,23 +115,27 @@ def calculate_crcl_cockcroft_gault(
     return round(crcl, 2)
 
 
-def calculate_digoxin_clearance(crcl_ml_min: float) -> float:
+def calculate_digoxin_clearance(
+    crcl_ml_min: float, nonrenal_clearance_ml_min: float = 40.0
+) -> float:
     """
     Calculate digoxin clearance using Koup & Jusko equation.
     
-    CL_digoxin (mL/min) = 1.303 * CrCl + 0.88
-    
-    This accounts for both renal and non-renal elimination.
-    
+    CL_digoxin (mL/min) = 1.303 * CrCl + CL_nonrenal.
+
+    The 40 mL/min nonrenal term is a population assumption, not a patient-specific
+    estimate; published estimates vary substantially, including with HF severity.
+
     Args:
         crcl_ml_min: Creatinine clearance in mL/min
+        nonrenal_clearance_ml_min: Assumed nonrenal clearance (default 40 mL/min)
         
     Returns:
         Digoxin clearance in mL/min
     """
-    if crcl_ml_min < 0:
-        raise ValueError("CrCl must be non-negative")
-    return round(1.303 * crcl_ml_min + 0.88, 2)
+    _validate_positive_finite(crcl_ml_min, "CrCl", allow_zero=True)
+    _validate_positive_finite(nonrenal_clearance_ml_min, "Nonrenal clearance")
+    return round(1.303 * crcl_ml_min + nonrenal_clearance_ml_min, 2)
 
 
 def calculate_volume_of_distribution(
@@ -147,9 +161,9 @@ def calculate_volume_of_distribution(
     Returns:
         Volume of distribution in liters
     """
-    if weight_kg <= 0:
-        raise ValueError("Weight must be positive")
-    
+    _validate_positive_finite(weight_kg, "Weight")
+    _validate_positive_finite(vd_per_kg, "Vd per kg")
+
     effective_vd_per_kg = vd_per_kg
     
     # Reduce Vd for special populations
@@ -178,10 +192,8 @@ def calculate_half_life(vd_liters: float, cl_ml_min: float) -> float:
     Returns:
         Half-life in hours
     """
-    if vd_liters <= 0:
-        raise ValueError("Vd must be positive")
-    if cl_ml_min <= 0:
-        raise ValueError("CL must be positive")
+    _validate_positive_finite(vd_liters, "Vd")
+    _validate_positive_finite(cl_ml_min, "Clearance")
     
     cl_l_per_hour = cl_ml_min * 60 / 1000
     t_half = 0.693 * vd_liters / cl_l_per_hour
@@ -209,12 +221,10 @@ def calculate_steady_state_concentration(
     Returns:
         Steady-state concentration in ng/mL
     """
-    if dose_mcg <= 0:
-        raise ValueError("Dose must be positive")
-    if cl_ml_min <= 0:
-        raise ValueError("Clearance must be positive")
-    if tau_hours <= 0:
-        raise ValueError("Dosing interval must be positive")
+    _validate_positive_finite(dose_mcg, "Dose")
+    _validate_positive_finite(cl_ml_min, "Clearance")
+    _validate_positive_finite(tau_hours, "Dosing interval")
+    _validate_bioavailability(bioavailability)
     
     # Convert CL from mL/min to L/h
     cl_l_per_hour = cl_ml_min * 60 / 1000
@@ -235,9 +245,9 @@ def calculate_peak_concentration(
     """
     Estimate peak and trough digoxin concentrations at steady state.
     
-    For oral digoxin (absorption rate ~0.02 h^-1):
-    Peak occurs ~1-2 hours post-dose (distribution phase)
-    Trough occurs just before next dose
+    Instantaneous-input one-compartment mathematical extrema, NOT clinical
+    post-dose serum peaks/troughs. Digoxin exhibits a distribution phase;
+    measured levels should be sampled >=6 hours after dosing.
     
     Args:
         dose_mcg: Digoxin dose in mcg
@@ -250,6 +260,12 @@ def calculate_peak_concentration(
     Returns:
         Dictionary with peak and trough estimates
     """
+    _validate_positive_finite(dose_mcg, "Dose")
+    _validate_positive_finite(vd_liters, "Vd")
+    _validate_positive_finite(cl_ml_min, "Clearance")
+    _validate_positive_finite(tau_hours, "Dosing interval")
+    _validate_bioavailability(bioavailability)
+    _validate_positive_finite(absorption_ka, "Absorption constant")
     ke = cl_ml_min * 60 / (1000 * vd_liters)  # Elimination rate constant
     
     # Steady-state average
@@ -258,7 +274,7 @@ def calculate_peak_concentration(
     # Simplified: trough = Css_avg * e^(-ke * tau/2) approximation
     # More accurate: use one-compartment model
     # Ctrough = (F*Dose/Vd) * e^(-ke*tau) / (1 - e^(-ke*tau))
-    cmax = (bioavailability * dose_mcg / vd_liters) / (1 - math.exp(-ke * tau_hours))
+    cmax = (bioavailability * dose_mcg / vd_liters) / (-math.expm1(-ke * tau_hours))
     cmin = cmax * math.exp(-ke * tau_hours)
     
     return {
@@ -286,10 +302,9 @@ def calculate_loading_dose(
     Returns:
         Dictionary with loading dose
     """
-    if vd_liters <= 0:
-        raise ValueError("Vd must be positive")
-    if target_concentration_ng_ml <= 0:
-        raise ValueError("Target concentration must be positive")
+    _validate_positive_finite(vd_liters, "Vd")
+    _validate_positive_finite(target_concentration_ng_ml, "Target concentration")
+    _validate_bioavailability(bioavailability)
     
     ld_mcg = vd_liters * target_concentration_ng_ml / bioavailability
     ld_mg = ld_mcg / 1000
@@ -313,7 +328,7 @@ def calculate_loading_dose(
             "dose_3_hours": 12,
             "note": "Divided loading: 50% initial, 25% at 6h, 25% at 12h"
         },
-        "notes": "Loading dose for acute situations. Monitor levels and renal function."
+        "notes": "Mathematical illustration only; do not initiate or repeat loading from an isolated low serum level. Loading requires indication, timing, ECG, renal and electrolyte review."
     }
 
 
@@ -338,10 +353,10 @@ def calculate_maintenance_dose(
     Returns:
         Dictionary with maintenance dose
     """
-    if target_css_ng_ml <= 0:
-        raise ValueError("Target concentration must be positive")
-    if cl_ml_min <= 0:
-        raise ValueError("Clearance must be positive")
+    _validate_positive_finite(target_css_ng_ml, "Target concentration")
+    _validate_positive_finite(cl_ml_min, "Clearance")
+    _validate_positive_finite(tau_hours, "Dosing interval")
+    _validate_bioavailability(bioavailability)
     
     # Convert CL from mL/min to L/h
     cl_l_per_hour = cl_ml_min * 60 / 1000
@@ -351,8 +366,8 @@ def calculate_maintenance_dose(
     dose_mcg = target_css_ng_ml * cl_l_per_hour * tau_hours / bioavailability
     dose_mg = dose_mcg / 1000
     
-    # Round to available tablet sizes (125mcg = 0.125mg, 250mcg = 0.25mg)
-    dose_mcg_rounded = round(dose_mcg / 12.5) * 12.5  # Round to nearest 12.5mcg
+    # Illustrative 62.5-mcg increment, NOT a dose recommendation.
+    dose_mcg_rounded = round(dose_mcg / 62.5) * 62.5
     
     return {
         "target_css_ng_ml": target_css_ng_ml,
@@ -363,8 +378,8 @@ def calculate_maintenance_dose(
         "calculated_daily_dose_mg": round(dose_mg, 3),
         "rounded_daily_dose_mcg": dose_mcg_rounded,
         "rounded_daily_dose_mg": round(dose_mcg_rounded / 1000, 3),
-        "predicted_css_ng_ml": round(calculate_steady_state_concentration(dose_mcg_rounded, cl_ml_min, tau_hours, bioavailability), 2),
-        "notes": "Standard tablets: 125mcg (0.125mg), 250mcg (0.25mg). Monitor levels after 5-7 days."
+        "predicted_css_ng_ml": (calculate_steady_state_concentration(dose_mcg_rounded, cl_ml_min, tau_hours, bioavailability) if dose_mcg_rounded > 0 else None),
+        "notes": "Illustrative population-PK estimate, not a prescription. Available strengths/formulations vary. Use clinical review and a level obtained at an appropriate time; steady state can take substantially longer in renal impairment."
     }
 
 
@@ -385,8 +400,7 @@ def adjust_dose_for_drug_interactions(
     Returns:
         Dictionary with adjusted dose and interaction details
     """
-    if base_dose_mcg <= 0:
-        raise ValueError("Base dose must be positive")
+    _validate_positive_finite(base_dose_mcg, "Base dose")
     
     interactions = []
     max_multiplier = 1.0
@@ -413,7 +427,7 @@ def adjust_dose_for_drug_interactions(
         "adjusted_dose_mcg": round(adjusted_dose, 0),
         "adjusted_dose_mg": round(adjusted_dose / 1000, 3),
         "dose_reduction_percent": round((1 - 1/max_multiplier) * 100, 1),
-        "notes": "Reduce digoxin dose when co-administered with interacting drugs. Monitor levels closely."
+        "notes": "Illustrative single-interaction sensitivity estimate only; interactions are heterogeneous and non-additive. Do not adjust a prescription from these factors alone."
     }
 
 
@@ -452,8 +466,9 @@ def interpret_digoxin_level(
     Returns:
         Dictionary with interpretation
     """
-    if concentration_ng_ml < 0:
-        raise ValueError("Concentration must be non-negative")
+    _validate_positive_finite(concentration_ng_ml, "Concentration", allow_zero=True)
+    if indication not in {"general", "heart_failure", "afib"}:
+        raise ValueError("Indication must be general, heart_failure or afib")
     
     if indication == "heart_failure":
         low, high = HF_THERAPEUTIC_LOW, HF_THERAPEUTIC_HIGH
@@ -464,19 +479,19 @@ def interpret_digoxin_level(
     
     if concentration_ng_ml < low:
         status = "SUBTHERAPEUTIC"
-        recommendation = "Increase dose. Level below therapeutic range."
+        recommendation = "Review adherence, sample timing, indication and clinical response; do not increase dose from one result alone."
         toxicity_risk = "LOW"
     elif concentration_ng_ml <= high:
         status = "THERAPEUTIC"
-        recommendation = "Within therapeutic range. Continue current regimen."
+        recommendation = "Concentration alone does not establish efficacy or safety. Review ECG, symptoms, renal function and electrolytes."
         toxicity_risk = "LOW"
     elif concentration_ng_ml <= HIGH_TOXICITY_THRESHOLD:
         status = "SUPRATHERAPEUTIC"
-        recommendation = "Reduce dose or hold. Monitor for toxicity symptoms."
+        recommendation = "Prompt clinical review for possible toxicity, including ECG, renal function and electrolytes; no automatic dose adjustment."
         toxicity_risk = "MODERATE"
     else:
         status = "TOXIC"
-        recommendation = "Hold digoxin. Monitor cardiac rhythm. Consider digoxin-specific antibody fragments."
+        recommendation = "Urgent clinical assessment for potential toxicity; ECG and electrolytes. Antidote decisions require clinical criteria, not level alone."
         toxicity_risk = "HIGH"
     
     # Toxicity symptoms
@@ -495,7 +510,9 @@ def interpret_digoxin_level(
         "target_range": target_desc,
         "recommendation": recommendation,
         "toxicity_risk": toxicity_risk,
-        "toxicity_symptoms": symptoms if symptoms else None
+        "toxicity_symptoms": symptoms if symptoms else None,
+        "sampling_note": "Interpret only with dose timing: collect just before the next dose, or at least 6 hours after the last dose.",
+        "clinical_context_warning": "Toxicity may occur within any concentration range; a single concentration does not determine safe dosing."
     }
 
 
@@ -518,12 +535,11 @@ def renal_dose_adjustment(
     Returns:
         Dictionary with renal-adjusted dose
     """
-    if base_dose_mcg <= 0:
-        raise ValueError("Base dose must be positive")
-    if crcl_ml_min < 0:
-        raise ValueError("CrCl must be non-negative")
+    _validate_positive_finite(base_dose_mcg, "Base dose")
+    _validate_positive_finite(crcl_ml_min, "CrCl", allow_zero=True)
+    _validate_positive_finite(normal_crcl, "Normal CrCl")
     
-    # Digoxin CL = 1.303 * CrCl + 0.88
+    # Digoxin CL = 1.303 * CrCl + 40 (population default nonrenal CL)
     patient_cl = calculate_digoxin_clearance(crcl_ml_min)
     normal_cl = calculate_digoxin_clearance(normal_crcl)
     
@@ -556,7 +572,7 @@ def renal_dose_adjustment(
         "adjusted_dose_mcg": adjusted_dose_rounded,
         "adjusted_dose_mg": round(adjusted_dose_rounded / 1000, 3),
         "dose_reduction_percent": round((1 - ratio) * 100, 1),
-        "monitoring_note": "Monitor digoxin levels closely in renal impairment. Check levels every 3-5 days initially."
+        "monitoring_note": "Population estimate only. Check clinical status, renal function, electrolytes and appropriately timed concentrations; steady state may be delayed in renal impairment."
     }
 
 
@@ -596,6 +612,13 @@ def full_digoxin_assessment(
     Returns:
         Complete assessment dictionary
     """
+    if route not in {"oral", "iv", "elixir"}:
+        raise ValueError("Route must be oral, iv or elixir")
+    if indication not in {"general", "heart_failure", "afib"}:
+        raise ValueError("Unsupported indication")
+    _validate_positive_finite(current_dose_mcg, "Current dose")
+    _validate_positive_finite(tau_hours, "Dosing interval")
+
     # Bioavailability based on route
     if route == "iv":
         bioavailability = IV_BIOAVAILABILITY
@@ -641,8 +664,9 @@ def full_digoxin_assessment(
     
     # Step 10: Loading dose if needed
     loading = None
-    if measured_level_ng_ml is not None and measured_level_ng_ml < 0.3:
-        loading = calculate_loading_dose(target_css, vd, bioavailability)
+    # A low level is not, by itself, an indication for a loading dose.
+    # Leave the backward-compatible output field null rather than suggest
+    # a potentially hazardous regimen.
     
     return {
         "patient_parameters": {
@@ -676,7 +700,14 @@ def full_digoxin_assessment(
         "renal_adjustment": renal_adj,
         "recommended_maintenance": recommended,
         "loading_dose": loading,
-        "disclaimer": "FOR EDUCATIONAL/RESEARCH USE ONLY. Not a substitute for clinical pharmacist review."
+        "model_limitations": [
+            "Population estimates assume stable renal function and steady-state dosing.",
+            "Predicted extrema are instantaneous-input model values, not measurable clinical peaks or troughs.",
+            "Measured concentration cannot be interpreted safely without the time since the last dose.",
+            "Cockcroft-Gault uses the supplied weight without adjustment for body composition.",
+            "Drug interactions and laboratory interferences require individualized review.",
+        ],
+        "disclaimer": "FOR EDUCATIONAL/RESEARCH USE ONLY. Never use as a standalone treatment or dosing decision."
     }
 
 
