@@ -53,6 +53,22 @@ jobs:
           curl --silent --fail http://127.0.0.1:8765/ | grep -q 'id="calculator"'
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8765/api/audit/logs)
           test "$status" = "403"
+      - name: Docker build and HTTP smoke
+        if: matrix.python-version == '3.12'
+        run: |
+          docker build -t digoxin-estimator:ci .
+          docker run -d --name digoxin-estimator-ci -p 8766:8000 digoxin-estimator:ci
+          trap 'docker rm -f digoxin-estimator-ci >/dev/null 2>&1 || true' EXIT
+          ready=0
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8766/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then docker logs digoxin-estimator-ci; exit 1; fi
+          curl --silent --fail http://127.0.0.1:8766/ | grep -q 'id="calculator"'
 
   dependency-audit:
     runs-on: ubuntu-latest
